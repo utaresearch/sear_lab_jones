@@ -38,3 +38,10 @@ The power flow formulation is selected using the variable ` pf_model`. Currently
 ## Examples 
 
 For examples on how to run the code see `example/example.jl`.
+
+<img src="./assets/output_1.png" alt="output_1" />
+<img src="./assets/output_2.png" alt="output_2" />
+<img src="./assets/output_3.png" alt="output_3" />
+<img src="./assets/output_4.png" alt="output_4" />
+<img src="./assets/output_5.png" alt="output_5" />
+<img src="./assets/output_6.png" alt="output_6" />
