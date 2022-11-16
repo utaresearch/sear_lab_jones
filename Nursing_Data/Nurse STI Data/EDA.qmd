@@ -1,0 +1,621 @@
+---
+title: "Nurse Survey EDA"
+format: 
+  html:
+    toc: true
+    toc-depth: 2
+    toc-title: TOC
+    toc-location: left
+  
+editor: visual
+execute: 
+  message: false
+  warning: false
+---
+
+## Packages
+
+```{r}
+#| message: false
+#| warning: false
+
+ 
+library(tidyverse)
+
+library(corrplot)
+```
+
+Some Sources:
+
+<https://r4ds.had.co.nz/exploratory-data-analysis.html#cat-cont>
+
+<https://learningstatisticswithr.com/book/chisquare.html>
+
+## Data Import
+
+```{r}
+data <- read_csv('./data/surveydata.csv')
+
+data <- data %>% mutate(across(-c(ResponseID, Age), factor))
+
+data
+```
+
+
+# Variables to investigate
+
+We want to investigate the following by creating graphs and running chi squared on:
+
+- Condom Use vs. App Sex Partners
+- Condom Use vs. Total Sex Partners
+- UT Health Services vs. Frequency of Testing
+- UT Health Services vs. App Sex Partners
+- UT Heatlth Services vs. Total Sex Partners
+- Frequency of Testing vs. App Sex Partners
+- Frequency of Testing vs. Total Sex Partners
+
+
+## UT Services vs Sex Partners vs. App Sex Partners
+
+```{r}
+data %>%
+  count(UTHC_serv, SexPart_APP, TOT_Sexpart)
+```
+
+```{r}
+data %>%
+  ggplot()+
+  geom_bar(aes(x= UTHC_serv), color = 'white')+
+  facet_grid(SexPart_APP ~ TOT_Sexpart)+
+  theme_bw()
+  
+```
+
+## UT Health Services vs. Sexual Partners on App
+
+```{r}
+data %>% 
+  mutate(sexpartapp = case_when(SexPart_APP == '0' ~ '0',
+                                SexPart_APP == '1' ~ '1',
+                                SexPart_APP == '7' | SexPart_APP == '8' ~ '2+')
+         ) %>%
+  na.omit() %>% 
+  count(UTHC_serv, sexpartapp)
+
+
+```
+
+```{r}
+hcapp <- data %>% 
+  count(UTHC_serv, SexPart_APP) %>% 
+  na.omit() %>% 
+  mutate(sexpartapp = case_when(SexPart_APP == '0' ~ '0',
+                                SexPart_APP == '1' ~ '1',
+                                SexPart_APP == '7' | SexPart_APP == '8' ~ '2+')
+         ) %>%
+  select(-SexPart_APP) %>%
+  ggplot(aes(x= UTHC_serv, y = n, fill = sexpartapp))+
+  geom_bar(stat = 'identity', color = 'white', position = 'dodge')+
+  geom_text(aes(label = n), vjust = -1, colour = "black", position = position_dodge(.9))+
+  #facet_grid(SexPart_APP ~ TOT_Sexpart)+
+  #geom_point(aes(x = 2014, y = 440000), color = 'gold', fill = 'gold', shape = 23, size = 5)+
+  #geom_text(aes(x = 2000, y = 447000, label = '2505 Bird'))+
+  labs(title = 'Usage of UTA Health Services by Number of Sexual Partners Met Through Apps',
+       x = '',
+       y = 'Count',
+       fill = '# Sexual Partners \n Through Apps')+
+  scale_y_continuous(limits = c(0,70), breaks = seq(0,70, by = 5))+
+  scale_x_discrete(labels = c('0' = 'Does Not Use UTA Health Service', '1' = 'Uses UTA Health Service') )+
+    theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), 
+        legend.position = 'right', 
+        legend.text = element_text(size = 12), 
+        #legend.title = element_blank(), 
+        axis.title = element_text(size = 12), 
+        axis.text = element_text(size = 12), 
+        axis.text.x = element_text(angle = 5), 
+        #axis.text.y = element_text(angle = 15), 
+        #axis.title.y = element_blank(), 
+        #strip.text.x = element_text(size = 8, face = 'bold'),
+        #legend.key.width = unit(0.1, 'in'), 
+        #legend.key.height = unit(0.1,'in'), 
+        #legend.margin = margin(t = 0, unit = 'cm'), 
+        #plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), 
+        #axis.ticks.y = element_blank()
+        )
+
+hcapp
+```
+
+## UT Health Services vs. Total Partners on App
+
+```{r}
+data %>% 
+    mutate(TOT_Sexpart = as.numeric(TOT_Sexpart)) %>%
+    mutate(sexparttot = case_when(TOT_Sexpart == '0' ~ '0',
+                                TOT_Sexpart == '1' ~ '1',
+                                TOT_Sexpart >= 1 ~ '2+') 
+    ) %>%
+  count(UTHC_serv, sexparttot) %>% 
+  na.omit() 
+
+         
+```
+
+```{r}
+hctot <- data %>% 
+    mutate(TOT_Sexpart = as.numeric(TOT_Sexpart)) %>%
+    mutate(sexparttot = case_when(TOT_Sexpart == '0' ~ '0',
+                                TOT_Sexpart == '1' ~ '1',
+                                TOT_Sexpart >= 1 ~ '2+') 
+    ) %>%
+  count(UTHC_serv, sexparttot) %>% 
+  na.omit()  %>%
+  ggplot(aes(x= UTHC_serv, y = n, fill = sexparttot))+
+  geom_bar(stat = 'identity', color = 'white', position = 'dodge')+
+  geom_text(aes(label = n), vjust = -1, colour = "black", position = position_dodge(.9))+
+  #facet_wrap(~ TOT_Sexpart)+
+  #geom_point(aes(x = 2014, y = 440000), color = 'gold', fill = 'gold', shape = 23, size = 5)+
+  #geom_text(aes(x = 2000, y = 447000, label = '2505 Bird'))+
+  labs(title = 'Usage of UTA Health Services by Total Number of Sexual Partners',
+       x = '',
+       y = 'Count',
+       fill = 'Total # of \n Sexual Partners')+
+  scale_y_continuous(limits = c(0,70), breaks = seq(0,70, by = 5))+
+  scale_x_discrete(labels = c('0' = 'Does Not Use UTA Health Service', '1' = 'Uses UTA Health Service') )+
+    theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), 
+        legend.position = 'right', 
+        legend.text = element_text(size = 12), 
+        #legend.title = element_blank(), 
+        axis.title = element_text(size = 12), 
+        axis.text = element_text(size = 12), 
+        axis.text.x = element_text(angle = 5), 
+        #axis.text.y = element_text(angle = 15), 
+        #axis.title.y = element_blank(), 
+        #strip.text.x = element_text(size = 8, face = 'bold'),
+        #legend.key.width = unit(0.1, 'in'), 
+        #legend.key.height = unit(0.1,'in'), 
+        #legend.margin = margin(t = 0, unit = 'cm'), 
+        #plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), 
+        #axis.ticks.y = element_blank()
+        )
+
+hctot
+```
+
+
+
+## Condom Use vs. Total Sexual Partners
+
+```{r}
+data %>% 
+    mutate(TOT_Sexpart = as.numeric(TOT_Sexpart)) %>%
+    mutate(sexparttot = case_when(TOT_Sexpart == '0' ~ '0',
+                                TOT_Sexpart == '1' ~ '1',
+                                TOT_Sexpart >= 1 ~ '2+') 
+    ) %>%
+  count(CU_lastSex, sexparttot) %>% 
+  na.omit() 
+
+         
+```
+
+```{r}
+cutot <- data %>% 
+    mutate(TOT_Sexpart = as.numeric(TOT_Sexpart)) %>%
+    mutate(sexparttot = case_when(TOT_Sexpart == '0' ~ '0',
+                                TOT_Sexpart == '1' ~ '1',
+                                TOT_Sexpart >= 1 ~ '2+') 
+    ) %>%
+  count(CU_lastSex, sexparttot) %>% 
+  na.omit()  %>%
+  ggplot(aes(x= CU_lastSex, y = n, fill = sexparttot))+
+  geom_bar(stat = 'identity', color = 'white', position = 'dodge')+
+  geom_text(aes(label = n), vjust = -1, colour = "black", position = position_dodge(.9))+
+  #facet_wrap(~ TOT_Sexpart)+
+  #geom_point(aes(x = 2014, y = 440000), color = 'gold', fill = 'gold', shape = 23, size = 5)+
+  #geom_text(aes(x = 2000, y = 447000, label = '2505 Bird'))+
+  labs(title = 'Condom Usage by Total Number of Sexual Partners',
+       x = '',
+       y = 'Count',
+       fill = 'Total # of \n Sexual Partners')+
+  scale_y_continuous(limits = c(0,70), breaks = seq(0,70, by = 5))+
+  scale_x_discrete(labels = c('0' = 'Did Not Use Condom \n Last Sexual Encounter', '1' = 'Used Condom \n Last Sexual Encounter') )+
+    theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), 
+        legend.position = 'right', 
+        legend.text = element_text(size = 12), 
+        #legend.title = element_blank(), 
+        axis.title = element_text(size = 12), 
+        axis.text = element_text(size = 12), 
+        axis.text.x = element_text(angle = 5), 
+        #axis.text.y = element_text(angle = 15), 
+        #axis.title.y = element_blank(), 
+        #strip.text.x = element_text(size = 8, face = 'bold'),
+        #legend.key.width = unit(0.1, 'in'), 
+        #legend.key.height = unit(0.1,'in'), 
+        #legend.margin = margin(t = 0, unit = 'cm'), 
+        #plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), 
+        #axis.ticks.y = element_blank()
+        )
+
+cutot
+```
+
+## Condom Use vs. App Sexual Parnters
+
+```{r}
+data %>% 
+    mutate(sexpartapp = case_when(SexPart_APP == '0' ~ '0',
+                                SexPart_APP == '1' ~ '1',
+                                SexPart_APP == '7' | SexPart_APP == '8' ~ '2+')
+    ) %>%
+  count(CU_lastSex, sexpartapp) %>% 
+  na.omit()
+```
+
+```{r}
+cuapp <- data %>% 
+    mutate(sexpartapp = case_when(SexPart_APP == '0' ~ '0',
+                                SexPart_APP == '1' ~ '1',
+                                SexPart_APP == '7' | SexPart_APP == '8' ~ '2+')
+    ) %>%
+  count(CU_lastSex, sexpartapp) %>% 
+  na.omit() %>%
+  add_row(CU_lastSex = '0', sexpartapp = '2+', n = 0) %>%
+  ggplot(aes(x= CU_lastSex, y = n, fill = sexpartapp))+
+  geom_bar(stat = 'identity', color = 'white', position = 'dodge')+
+  geom_text(aes(label = n), vjust = -1, colour = "black", position = position_dodge(.9))+
+  #facet_wrap(~ TOT_Sexpart)+
+  #geom_point(aes(x = 2014, y = 440000), color = 'gold', fill = 'gold', shape = 23, size = 5)+
+  #geom_text(aes(x = 2000, y = 447000, label = '2505 Bird'))+
+  labs(title = 'Condom Usage by Number of Sexual Partners Met Through Apps',
+       x = '',
+       y = 'Count',
+       fill = '# of Sexual Partners \n Met Through Apps')+
+  scale_y_continuous(limits = c(0,70), breaks = seq(0,70, by = 5))+
+  scale_x_discrete(labels = c('0' = 'Did Not Use Condom \n Last Sexual Encounter', '1' = 'Used Condom \n Last Sexual Encounter') )+
+    theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), 
+        legend.position = 'right', 
+        legend.text = element_text(size = 12), 
+        #legend.title = element_blank(), 
+        axis.title = element_text(size = 12), 
+        axis.text = element_text(size = 12), 
+        axis.text.x = element_text(angle = 5), 
+        #axis.text.y = element_text(angle = 15), 
+        #axis.title.y = element_blank(), 
+        #strip.text.x = element_text(size = 8, face = 'bold'),
+        #legend.key.width = unit(0.1, 'in'), 
+        #legend.key.height = unit(0.1,'in'), 
+        #legend.margin = margin(t = 0, unit = 'cm'), 
+        #plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), 
+        #axis.ticks.y = element_blank()
+        )
+
+cuapp
+```
+
+# Graphs
+
+```{r}
+hcapp
+hctot
+cuapp
+cutot
+
+ggsave(plot = hcapp, filename = './results/figures/healthserveapp.png', dpi = 320)
+ggsave(plot = hctot, filename = './results/figures/healthservetotal.png', dpi = 320)
+ggsave(plot = cuapp, filename = './results/figures/condomuseapp.png', dpi = 320)
+ggsave(plot = cutot, filename = './results/figures/condomusetotal.png', dpi = 320)
+```
+
+# Chi Squared Tests
+
+This is where we evaluate the chi squared independance test. Results should be written in the paper using this APA format (https://www.socscistatistics.com/tutorials/chisquare/default.aspx)
+
+The chisq test in R returns:
+
+**Statistic:** the value the chi-squared test statistic. parameter: the degrees of freedom p.value: the p-value of the test observed: the observed count expected: the expected count
+
+P value less than 0.05 and a chi-squared value higher than the critical value reject null hypothesis that there is no relationship.
+
+Sources:
+
+<http://www.sthda.com/english/wiki/chi-square-goodness-of-fit-test-in-r> <http://www.sthda.com/english/wiki/wiki.php?title=chi-square-test-of-independence-in-r>
+
+## Chi Squared Tests: Condom Use vs. App Sexual Partners
+
+```{r}
+
+data_cuapp <- data %>% 
+  count(CU_lastSex, SexPart_APP) %>% na.omit() %>%
+  pivot_wider(names_from = SexPart_APP, values_from = n) %>% 
+  replace(is.na(.),0) %>% 
+  column_to_rownames(var = 'CU_lastSex')
+
+data_cuapp 
+
+data %>% 
+  count(CU_lastSex, SexPart_APP) 
+
+```
+
+```{r}
+chisq_cuapp <- chisq.test(data_cuapp, simulate.p.value = TRUE)
+
+chisq_cuapp
+
+chisq_cuapp$observed
+
+chisq_cuapp$expected %>% round(2)
+
+print('Crtical Value of 95% Chi Square with 3 DOF:')
+qchisq(p = 0.975, df = 3)
+
+```
+
+
+```{r}
+corrplot(chisq_cuapp$residuals, is.cor = FALSE)
+
+
+chisq_cuapp$residuals
+```
+
+Positive residuals are in blue.
+
+Positive values in cells specify an attraction (positive association) between the corresponding row and column variables.
+
+Negative residuals are in red.
+
+This implies a repulsion (negative association) between the corresponding row and column variables.
+
+## Chi Squared Tests: Condom Use vs. Total Sexual Partners
+
+```{r}
+
+data_cutot <- data %>% 
+  count(CU_lastSex, TOT_Sexpart) %>% na.omit() %>%
+  pivot_wider(names_from = TOT_Sexpart, values_from = n) %>% 
+  replace(is.na(.),0) %>% 
+  column_to_rownames(var = 'CU_lastSex')
+
+data_cutot 
+
+```
+
+```{r}
+chisq_cutot <- chisq.test(data_cutot)
+
+chisq_cutot
+
+chisq_cutot$observed
+
+chisq_cutot$expected %>% round(2)
+
+print('Crtical Value of 95% Chi Square with 6 DOF:')
+qchisq(p = 0.975, df = 6)
+
+```
+
+The chisq test returns:
+
+**Statistic:** the value the chi-squared test statistic. parameter: the degrees of freedom p.value: the p-value of the test observed: the observed count expected: the expected count
+
+P value less than 0.05 and a chi-squared value higher than the critical value reject null hypothesis that there is no relationship.
+
+```{r}
+corrplot(chisq_cutot$residuals, is.cor = FALSE)
+
+
+chisq_cutot$residuals
+```
+
+## Z Proportion and Chi Squared Tests: UT Health Services vs. App Partners
+
+Note that, for 2 x 2 table, the standard chi-square test in chisq.test() is exactly equivalent to prop.test() but it works with data in matrix form.
+
+Source:
+
+<http://www.sthda.com/english/wiki/two-proportions-z-test-in-r>
+
+```{r}
+data_cuapp
+
+data_cuapp1 <- data %>% 
+   mutate(sexpartapp = case_when(SexPart_APP == '0' ~ '0',
+                                SexPart_APP != '0' ~ '1+')
+    ) %>%
+  count(CU_lastSex, sexpartapp) %>% 
+  na.omit() %>%
+  pivot_wider(names_from = sexpartapp, values_from = n) %>% 
+  replace(is.na(.),0) %>% 
+  column_to_rownames(var = 'CU_lastSex')
+
+
+data_cuapp1
+```
+
+
+```{r}
+chisq_cuapp1 <- chisq.test(data_cuapp1)
+
+chisq_cuapp1
+
+chisq_cuapp1$expected
+
+prop.test(as.matrix(data_cuapp1), alternative = "two.sided",
+          correct = TRUE)
+
+```
+
+
+## Z Proportion and Chi Squared Tests: UT Health Services vs. Total Partners
+
+```{r}
+data_hctot <- data %>% 
+    mutate(sexparttot = case_when(TOT_Sexpart == '1' ~ '1',
+                                TOT_Sexpart != '1' ~ '2+')    ) %>%
+  count(UTHC_serv, sexparttot) %>% 
+  na.omit() %>%
+  pivot_wider(names_from = sexparttot, values_from = n) %>%
+  column_to_rownames(var = 'UTHC_serv')
+
+data_hctot
+```
+
+Shows that the proportion test for a 2 x 2 table is the same as a Pearson Chi Squared Test
+
+```{r}
+prop.test(as.matrix(data_hctot), alternative = "two.sided",
+          correct = TRUE)
+
+chisq.test(data_hctot)
+```
+
+
+# Misc Explorations
+
+## Type of Sex vs. Condom Use vs. Substance Use
+
+```{r}
+data %>% count(SubUse_lastSex, CU_lastSex)
+```
+
+```{r}
+data %>% 
+  ggplot()+
+  geom_bar(aes(x= Or_VagAnal), color = 'white')+
+  facet_grid(CU_lastSex ~ SubUse_lastSex)+
+  theme_bw()
+```
+
+## STI vs. Condom
+
+```{r}
+data %>% count(CU_lastSex, Pos_STIHIV)
+```
+
+```{r}
+data %>%
+  ggplot()+
+  geom_bar(aes(x = Pos_STIHIV))+
+  facet_wrap(~ CU_lastSex)
+```
+
+## Prefer Plan B vs. Condom
+
+```{r}
+
+data %>% count(Prefer_planB, CU_lastSex)
+```
+
+```{r}
+data %>% 
+  # count(Prefer_planB, CU_lastSex) %>%
+  ggplot()+
+  geom_bar(aes(x= Prefer_planB), color = 'white')+
+  facet_wrap(~ CU_lastSex)+
+  theme_bw()
+```
+
+```{r}
+
+data %>% count(TOT_Sexpart, SexPart_APP)
+```
+
+```{r}
+data %>% 
+  # count(Prefer_planB, CU_lastSex) %>%
+  ggplot()+
+  geom_bar(aes(x= SexPart_APP), color = 'white')+
+  facet_wrap(~ TOT_Sexpart)+
+  theme_bw()
+```
+
+
+
+## Type of Sex vs. Race, Age, and More EDA Plots
+
+```{r}
+data %>% 
+  count(Or_VagAnal, Race)
+```
+
+```{r}
+data %>% 
+  ggplot(aes(x = Age, y = ..density..))+
+  geom_freqpoly(aes( color = Or_VagAnal), binwidth = 5)
+```
+
+```{r}
+data %>% 
+  ggplot(aes(x = Or_VagAnal, y = Age))+
+  geom_boxplot()
+```
+
+```{r}
+data %>% 
+  ggplot()+
+  geom_count(aes(x = Or_VagAnal, y = CU_lastSex))
+```
+
+```{r}
+data %>% 
+  count(Or_VagAnal, CU_lastSex) %>%
+  ggplot()+
+  geom_tile(aes(x = Or_VagAnal, y = CU_lastSex, fill = n))
+```
+
+```{r}
+#| echo: false
+
+data %>%
+  ggplot(aes(x = Age, y = Or_VagAnal
+             #, group = week, shape = week, color = week
+             ))+
+  geom_point()+
+  geom_line()+
+  #geom_point(aes(x = 2014, y = 440000), color = 'gold', fill = 'gold', shape = 23, size = 5)+
+  #geom_text(aes(x = 2000, y = 447000, label = '2505 Bird'))+
+  labs(title = 'EDA Plot',
+       x = 'Age',
+       y = 'Test Stat')+
+  #scale_y_continuous(limits = c(0,110), breaks = seq(0,110, by = 10))+
+  #scale_x_continuous(limits = c(1250,2500), breaks = seq(1250, 2500, by = 250))+
+    theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), 
+        legend.position = 'right', 
+        legend.text = element_text(size = 12), 
+        #legend.title = element_blank(), 
+        axis.title = element_text(size = 12), 
+        axis.text = element_text(size = 12), 
+        axis.text.x = element_text(angle = 15), 
+        #axis.text.y = element_text(angle = 15), 
+        #axis.title.y = element_blank(), 
+        #strip.text.x = element_text(size = 8, face = 'bold'),
+        #legend.key.width = unit(0.1, 'in'), 
+        #legend.key.height = unit(0.1,'in'), 
+        #legend.margin = margin(t = 0, unit = 'cm'), 
+        #plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), 
+        #axis.ticks.y = element_blank()
+        )
+
+```
+
+```{r}
+#| eval: false
+#| echo: false
+
+
+wc3 <- ggplot() + geom_bar(data = water_capacitydf_water, aes(x = Techtype, y = Capacity, fill = Technology), stat = 'identity')+
+  facet_wrap(~Scenario)+
+  #theme_minimal()+
+  theme(plot.title = element_text(size = 12, face = 'bold'), legend.position = 'bottom', legend.text = element_text(size = 8), legend.title = element_blank(), axis.title = element_text(size = 8), axis.text = element_text(size = 8), axis.text.x = element_text(angle = 15), axis.text.y = element_blank(), axis.title.y = element_blank(), strip.text.x = element_text(size = 8, face = 'bold'),legend.key.width = unit(0.1, 'in'), legend.key.height = unit(0.1,'in'), legend.margin = margin(t = 0, unit = 'cm'), plot.margin = unit(x = c(0.5,0.5,0.5,0.5), units = 'mm'), axis.ticks.y = element_blank())+
+  labs(title = 'Water Only', y = 'Average Installed Water Capacity (kGals)', x = '')+
+   scale_fill_manual(labels = c("C_VRF" = "WRF", "H_RW" = "RWH", 'H_GW' = 'GWR', "U_H2O1" = 'U_H2O1', "U_H2O2" = 'U_H2O2', "U_H2O3" = 'U_H2O3', "U_H2O4" = 'U_H2O4', "U_H2O5" = 'U_H2O5','C_RWTANK' = 'CRWTANK', 'H_RWTANK' = 'RWTANK'), values = c("C_VRF" = "#E31A1C", "H_RW" = "#FB9A99", 'H_GW' = 'darkorange2', "U_H2O1" = 'gray45', "U_H2O2" = 'gray38', "U_H2O3" = 'gray32', "U_H2O4" = 'gray25', "U_H2O5" = 'gray15','C_RWTANK' = 'aquamarine', 'H_RWTANK' = 'aquamarine4') )+
+  coord_cartesian(ylim = c(0,1.25))+
+  guides(fill=guide_legend(nrow = 2, byrow = TRUE))
+```
